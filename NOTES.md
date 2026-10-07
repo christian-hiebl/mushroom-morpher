@@ -22,6 +22,12 @@ from its recorded traits.
 - **Comparison tray**: park several species, click a chip to switch the model
 - **Top 5 matches**, each with trait breakdown, edibility badges, and a photo
   slideshow (click any photo)
+- **Surprise me** builds a random species; **Build me** on any match card builds
+  that species without typing its name
+- **Where & when**: optional season / region / habitat chips, matched at half
+  weight (see "How the data was built")
+- Control-panel sections collapse (native `<details>`); on phones the whole
+  panel starts collapsed and the handles on the model still work
 - Everything (shape, built species, size, comparison set) lives in the URL
 
 ---
@@ -35,12 +41,15 @@ src/mushroom.ts           profile() + 3D mesh building
 src/match.ts              scoring, search, speciesToParams
 src/params.ts             MushroomParams, palette, vocabularies, limits
 src/drag.ts               pure screen-space drag maths (unit tested)
-src/data/species.json     1,000 species, loaded eagerly (~830 KB)
-src/data/gallery.json     1,944 photos, lazy-imported on first slideshow (~780 KB)
-src/data/species.colors.json   hand-derived colours for the top 100 (authoritative)
+src/photo.ts              original Wikimedia URL -> thumbnail URL
+src/data/species.json     1,000 species, its own chunk, preloaded (~940 KB, 128 KB gzip)
+public/gallery.json       1,944 photos, fetched on first slideshow (~570 KB)
+public/favicon.svg        the icon
+src/data/species.colors.json   hand-derived colours, 207 species (authoritative)
 src/data/species.raw.json      full provenance / audit trail, not shipped
 scripts/build-species.ts  the whole data pipeline
 scripts/colors.ts         deterministic colour extraction from prose
+scripts/habitat.ts        season / region / habitat extraction from prose
 scripts/.cache-*.json     pageviews, extracts, gallery — makes reruns cheap
 ```
 
@@ -83,6 +92,16 @@ scripts/.cache-*.json     pageviews, extracts, gallery — makes reruns cheap
    the side panels. **Invisible at dpr 1**, which is why headless testing missed
    it — always verify with `--force-device-scale-factor=2`.
 
+8. **Photos are always requested as thumbnails (`src/photo.ts`).** Wikimedia
+   answers hotlinked originals with HTTP 429 once a page asks for a few, and an
+   original can be 12 MB. Only the standard widths exist (250, 330, 500, 960,
+   1280, 1920); any other width is a 400.
+
+9. **`species.json` is a dynamic import, preloaded by `vite.config.ts`.** The
+   main bundle went from 1,448 KB to 539 KB (261 -> 139 KB gzip) and the scene
+   paints before the data arrives. `species` is `[]` until then, so search and
+   Surprise me start disabled and the match cards start hidden.
+
 ---
 
 ## How the data was built
@@ -102,8 +121,23 @@ scripts/.cache-*.json     pageviews, extracts, gallery — makes reruns cheap
 **auto-extracted** by `scripts/colors.ts`, which trusts only two phrasings
 (`"the bright red cap"`, `"the cap is bright red"`) because looser matching gave
 the fly agaric `"white eggs"` and *Hydnellum* `"red fluid"`. Measured against
-the hand-derived set it is **74% accurate** and silent half the time.
-Split: 84 hand-derived, 341 auto, 575 none.
+the first 100 hand-derived species it is **74% accurate** and silent half the time.
+Split: 191 hand-derived, 278 auto, 531 none.
+
+The hand-read set was extended on 2026-10-07 by reading species 101-250: 107 got
+a cap colour, chosen as a palette swatch beside its source sentence. The other 43
+had no clear cap-colour sentence and were left out of the file, so they keep
+auto-extraction (a recorded `null` would have blanked it). The 74% figure was not
+re-measured against the larger set.
+
+**Season, region and habitat** come from `scripts/habitat.ts`: keyword matching
+over the lead paragraph and the habitat / distribution / ecology sections only,
+skipping sentences that negate or compare ("absent from", "related species
+occur in"). Coverage: region 881 species, habitat 825, season 353. A 30-species
+spot check across the popularity range found one wrong value after tuning
+(*Phellinus ellipsoideus* gets Europe from a sentence about another fungus), so
+treat it as roughly as reliable as the auto colours, which is why each weighs 0.5.
+Months are deliberately not mapped to seasons: March is autumn in Australia.
 
 ---
 
@@ -136,6 +170,14 @@ me time). **Use `--force-device-scale-factor=2`**; dpr-1 testing hides real bugs
 - 22 species have no verified photo and render a placeholder
 - `pores` vs `smooth` look alike until you orbit under the cap
 - 6 species fall below the evidence floor and never rank (e.g. *Claviceps purpurea*)
+- Picking a region, season or habitat that few well-matching species record can
+  put a species with *no* recorded value at #1: unknown traits are not scored
+  (decision 1), so it loses nothing while the others lose half a point
+- Two "species" are common-name pages that pass the binomial filter (*Shaggy
+  parasol*, *Candy cap*); the former's infobox name changed upstream on
+  2026-10-07, so it now displays under its page title
+- `npm run build:data` needs the network for wikitext and image metadata even
+  with warm caches, so a rerun picks up live article edits
 
 ---
 
@@ -143,10 +185,9 @@ me time). **Use `--force-device-scale-factor=2`**; dpr-1 testing hides real bugs
 
 - Spore print and ecology are matched but have no 3D representation (they are
   dropdown/chips only) — fine, they're invisible on a real mushroom too
-- The bundle is ~1.3 MB (250 KB gzip); `species.json` could be trimmed or split
+- `species.json` could shrink further: `url` and `image.page` are derivable
+  (~125 KB raw, but only ~10 KB gzip, so it was not worth the type changes)
 - No persistence beyond the URL; no server
-- The matcher has no notion of habitat, season or region, all of which are in
-  the articles and would discriminate further
 
 ## Not an identification tool
 

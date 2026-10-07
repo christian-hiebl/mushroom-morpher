@@ -10,18 +10,22 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { alongAxis, screenAxis, worldPerPixel } from './drag';
 import { Mushroom, profile } from './mushroom';
+import { wikiThumb, type ThumbWidth } from './photo';
 import {
   matchedCommonName, rank, search, speciesToParams, unknownTraits,
   type Match, type SizeVariant, type Species,
 } from './match';
 import {
-  ATTACHMENTS, DEFAULTS, ECOLOGIES, HYMENIA, LIMITS, PALETTE, SPORE_PRINTS,
+  ATTACHMENTS, DEFAULTS, ECOLOGIES, HABITATS, HYMENIA, LIMITS, PALETTE, REGIONS, SEASONS, SPORE_PRINTS,
   clamp, shapeName,
   type Ecology, type GillAttachment, type Hymenium, type MushroomParams, type NumericKey,
 } from './params';
-import SPECIES from './data/species.json';
 
-const species = SPECIES as unknown as Species[];
+/**
+ * Empty until the data chunk arrives. It is imported dynamically (see the end
+ * of this file) so the scene paints without waiting on ~900 KB of species data.
+ */
+let species: Species[] = [];
 
 /**
  * Never assign a URL from the data file to href or src without checking it.
@@ -40,7 +44,18 @@ function safeUrl(url: string | null | undefined): string | null {
     return null;
   }
 }
+
+/** Show a Wikimedia photo as a thumbnail, falling back to the original once. */
+function setPhoto(img: HTMLImageElement, url: string, width: ThumbWidth) {
+  img.onerror = () => { img.onerror = null; img.src = url; };
+  img.src = wikiThumb(url, width);
+}
 const params: MushroomParams = { ...DEFAULTS };
+
+/** The where-and-when traits: param key and its fixed vocabulary. */
+const WHERE: ['season' | 'region' | 'habitat', readonly string[]][] = [
+  ['season', SEASONS], ['region', REGIONS], ['habitat', HABITATS],
+];
 
 /**
  * The shape lives in the URL hash, so a mushroom you built can be linked, bookmarked
@@ -76,6 +91,9 @@ function readHash() {
   if (!ATTACHMENTS.includes(params.gillAttachment)) params.gillAttachment = DEFAULTS.gillAttachment;
   if (params.sporePrint && !SPORE_PRINTS.includes(params.sporePrint)) params.sporePrint = null;
   if (params.ecology && !ECOLOGIES.some((e) => e.value === params.ecology)) params.ecology = null;
+  for (const [k, vocab] of WHERE) {
+    if (params[k] && !vocab.includes(params[k]!)) params[k] = null;
+  }
   for (const k of ['capColor', 'stemColor'] as const) {
     if (!/^#[0-9a-f]{6}$/i.test(params[k])) params[k] = DEFAULTS[k];
   }
@@ -414,16 +432,22 @@ function slider(key: NumericKey, label: string, step: number, unit: string) {
   el.setAttribute('aria-label', label);
   el.addEventListener('input', () => setParam(key, Number(el.value)));
   row.appendChild(el);
-  controlsEl.appendChild(row);
+  section.appendChild(row);
   const out = row.querySelector('output')!;
   inputs.push({ el, key, out });
   (out as any)._unit = unit;
 }
 
+/** The section new controls are added to; group() starts the next one. */
+let section: HTMLElement = controlsEl;
+/** A collapsible section: native <details>, open by default. */
 function group(title: string) {
-  const h = document.createElement('h3');
+  section = document.createElement('details');
+  (section as HTMLDetailsElement).open = true;
+  const h = document.createElement('summary');
   h.textContent = title;
-  controlsEl.appendChild(h);
+  section.appendChild(h);
+  controlsEl.appendChild(section);
 }
 
 group('Cap');
@@ -444,7 +468,7 @@ const swatchButtons: Record<'capColor' | 'stemColor', HTMLButtonElement[]> = {
     const title = document.createElement('p');
     title.className = 'swatchlabel';
     title.innerHTML = `${label} <span></span>`;
-    controlsEl.appendChild(title);
+    section.appendChild(title);
 
     const grid = document.createElement('div');
     grid.className = 'palette';
@@ -461,7 +485,7 @@ const swatchButtons: Record<'capColor' | 'stemColor', HTMLButtonElement[]> = {
       grid.appendChild(b);
       swatchButtons[key].push(b);
     }
-    controlsEl.appendChild(grid);
+    section.appendChild(grid);
     swatchNames[key] = title.querySelector('span')!;
   }
 }
@@ -481,7 +505,7 @@ const hymButtons: Partial<Record<Hymenium, HTMLButtonElement>> = {};
     wrap.appendChild(b);
     hymButtons[h.value] = b;
   }
-  controlsEl.appendChild(wrap);
+  section.appendChild(wrap);
 }
 
 const attachWrap = document.createElement('div');
@@ -495,7 +519,7 @@ for (const a of ATTACHMENTS) {
   attachWrap.appendChild(b);
   attachButtons[a] = b;
 }
-controlsEl.appendChild(attachWrap);
+section.appendChild(attachWrap);
 
 // surface
 group('Surface');
@@ -515,7 +539,7 @@ const toggles: Partial<Record<'ring' | 'volva', HTMLInputElement>> = {};
     wrap.appendChild(l);
     toggles[key] = inp;
   }
-  controlsEl.appendChild(wrap);
+  section.appendChild(wrap);
 }
 
 /**
@@ -544,7 +568,7 @@ const sporeSelect = document.createElement('select');
   sporeSelect.addEventListener('change', () =>
     setParam('sporePrint', sporeSelect.value || null));
   row.appendChild(sporeSelect);
-  controlsEl.appendChild(row);
+  section.appendChild(row);
 }
 
 const ecoButtons: Record<string, HTMLButtonElement> = {};
@@ -562,7 +586,32 @@ const ecoButtons: Record<string, HTMLButtonElement> = {};
   };
   mk(null, 'any', 'not specified');
   for (const e of ECOLOGIES) mk(e.value, e.value, e.hint);
-  controlsEl.appendChild(wrap);
+  section.appendChild(wrap);
+}
+
+/**
+ * Season, region and habitat are read from each article's prose by keyword, so
+ * they are weaker evidence than the traits above and weigh half as much. Like
+ * spore print they default to "any", which is not scored.
+ */
+group('Where & when');
+const whereButtons: Record<string, Record<string, HTMLButtonElement>> = {};
+for (const [key, vocab] of WHERE) {
+  const title = document.createElement('div');
+  title.className = 'swatchlabel';
+  title.textContent = key[0].toUpperCase() + key.slice(1);
+  const wrap = document.createElement('div');
+  wrap.className = 'chips';
+  whereButtons[key] = {};
+  for (const value of [null, ...vocab]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = value ?? 'any';
+    b.addEventListener('click', () => setParam(key, value));
+    wrap.appendChild(b);
+    whereButtons[key][value ?? ''] = b;
+  }
+  section.append(title, wrap);
 }
 
 document.getElementById('reset')!.addEventListener('click', () => {
@@ -597,6 +646,9 @@ function syncInputs() {
   for (const [k, b] of Object.entries(ecoButtons)) {
     b.classList.toggle('on', (params.ecology ?? '') === k);
   }
+  for (const [key] of WHERE) {
+    for (const [k, b] of Object.entries(whereButtons[key])) b.classList.toggle('on', (params[key] ?? '') === k);
+  }
   for (const key of ['capColor', 'stemColor'] as const) {
     const current = params[key].toLowerCase();
     PALETTE.forEach((sw, i) => {
@@ -629,7 +681,7 @@ const worstClass = (edibility: string[]) =>
  */
 type Card = {
   root: HTMLElement; img: HTMLImageElement; pct: HTMLElement; cover: HTMLElement;
-  name: HTMLAnchorElement;
+  name: HTMLAnchorElement; buildBtn: HTMLButtonElement;
   badges: HTMLElement; traits: HTMLElement; credit: HTMLElement; key: string;
   /** Which species this card currently shows, for opening its slideshow. */
   species: Species | null;
@@ -654,6 +706,7 @@ for (let i = 0; i < MATCH_COUNT; i++) {
         <span class="cover"></span><span class="pct"></span></div>
       <h4><a target="_blank" rel="noopener noreferrer"></a></h4>
       <div class="badges"></div>
+      <button type="button" class="buildme">Build me</button>
       <ul class="traits"></ul>
       <p class="credit"></p>
     </div>`;
@@ -664,6 +717,7 @@ for (let i = 0; i < MATCH_COUNT; i++) {
     pct: root.querySelector<HTMLElement>('.pct')!,
     cover: root.querySelector<HTMLElement>('.cover')!,
     name: root.querySelector<HTMLAnchorElement>('h4 a')!,
+    buildBtn: root.querySelector<HTMLButtonElement>('.buildme')!,
     badges: root.querySelector<HTMLElement>('.badges')!,
     traits: root.querySelector<HTMLElement>('.traits')!,
     credit: root.querySelector<HTMLElement>('.credit')!,
@@ -673,6 +727,13 @@ for (let i = 0; i < MATCH_COUNT; i++) {
   card.img.addEventListener('click', () => {
     if (card.species) openGallery(card.species, card.img);
   });
+  card.buildBtn.addEventListener('click', () => {
+    if (!card.species) return;
+    chooseSpecies(card.species);
+    // on a phone the cards sit below the model, so bring the result into view
+    canvasWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  root.hidden = true; // nothing to show until the species data has loaded
   cards.push(card);
 }
 
@@ -689,6 +750,10 @@ function renderMatches(top: Match[]) {
       `Matched on ${scored} of the traits this species records. ` +
       `Traits its article never states are not scored either way.`;
 
+    c.root.hidden = false;
+    c.buildBtn.disabled = built === s;
+    c.buildBtn.textContent = built === s ? 'Built' : 'Build me';
+
     // everything below depends only on which species it is, not on the score
     c.species = s;
     if (c.key !== s.name) {
@@ -697,10 +762,11 @@ function renderMatches(top: Match[]) {
       // a broken image box
       const photo = safeUrl(s.image?.url);
       if (photo) {
-        c.img.src = photo;
+        setPhoto(c.img, photo, 500);
         c.img.alt = s.name;
         c.img.classList.remove('noimg');
       } else {
+        c.img.onerror = null;
         c.img.removeAttribute('src');
         c.img.alt = '';
         c.img.classList.add('noimg');
@@ -793,6 +859,14 @@ function build(sp: Species, variant: SizeVariant = size) {
   renderWorkbench();
 }
 
+/** Build a species the user picked: from search, a match card or Surprise me. */
+function chooseSpecies(sp: Species) {
+  build(sp, 'medium');
+  (document.getElementById('search') as HTMLInputElement).value = sp.name;
+  setStatus(`built ${sp.name}`);
+  setTimeout(() => setStatus(''), 2200);
+}
+
 function renderWorkbench() {
   workbench.hidden = !built && comparison.length === 0;
   if (built) {
@@ -874,11 +948,8 @@ document.getElementById('clearcompare')!.addEventListener('click', () => {
   };
 
   const choose = (sp: Species) => {
-    build(sp, 'medium');
-    input.value = sp.name;
+    chooseSpecies(sp);
     close();
-    setStatus(`built ${sp.name}`);
-    setTimeout(() => setStatus(''), 2200);
   };
 
   const draw = () => {
@@ -943,6 +1014,14 @@ document.getElementById('clearcompare')!.addEventListener('click', () => {
     }
   });
 
+  // Only species that record a size and a colour: one built from defaults
+  // would look like the starting mushroom and read as "nothing happened".
+  document.getElementById('surprise')!.addEventListener('click', () => {
+    const pool = species.filter((sp) => sp.capCm && sp.capColor && sp !== built);
+    if (!pool.length) return;
+    choose(pool[Math.floor(Math.random() * pool.length)]);
+  });
+
   input.addEventListener('blur', () => setTimeout(close, 140));
   input.addEventListener('focus', () => { if (input.value.trim() && hits.length) draw(); });
 }
@@ -980,7 +1059,8 @@ function showShot(i: number) {
   if (!shots.length) return;
   shotIndex = (i + shots.length) % shots.length;
   const shot = shots[shotIndex];
-  lbImg.src = safeUrl(shot.url) ?? '';
+  const url = safeUrl(shot.url);
+  if (url) setPhoto(lbImg, url, 1280); else lbImg.removeAttribute('src');
   lbCount.textContent = `photo ${shotIndex + 1} of ${shots.length}`;
   // full attribution: author, licence, and a link to the source file page
   const source = safeUrl(shot.page);
@@ -1000,7 +1080,7 @@ function showShot(i: number) {
   // preload the neighbour so stepping through feels instant
   if (!only) {
     const next = safeUrl(shots[(shotIndex + 1) % shots.length].url);
-    if (next) new Image().src = next;
+    if (next) new Image().src = wikiThumb(next, 1280);
   }
 }
 
@@ -1119,8 +1199,13 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
-/** Resolve any species named in the URL now that the dataset and UI are ready. */
-{
+/** Load the dataset, then resolve any species named in the URL. */
+import('./data/species.json').then((m) => {
+  species = m.default as unknown as Species[];
+  for (const id of ['search', 'surprise']) {
+    (document.getElementById(id) as HTMLInputElement | HTMLButtonElement).disabled = false;
+  }
+  dirty = true; // re-rank now that there is something to rank against
   const byName = (n: string) => species.find((s) => s.name === n || s.page === n);
   for (const n of pendingCompare) {
     const sp = byName(n);
@@ -1133,7 +1218,10 @@ function frame() {
   } else {
     renderWorkbench();
   }
-}
+}).catch((err) => {
+  console.error('could not load the species data', err);
+  setStatus('could not load the species data \u2014 reload to retry');
+});
 
 syncInputs();
 frame();

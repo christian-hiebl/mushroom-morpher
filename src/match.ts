@@ -1,13 +1,9 @@
 /**
- * Scores the user's mushroom against the 100 real species in species.json.
+ * Scores the user's mushroom against the real species in species.json.
  *
- * Every trait contributes a similarity in [0,1] times a weight. Traits the species
- * has no data for are credited at a neutral PRIOR rather than dropped, and the
- * denominator is always the full applicable weight. That matters: dropping them
- * instead lets a species with almost nothing recorded about it (Claviceps purpurea
- * has no hymenium, cap shape, colour or dimensions) score ~100% off two lucky
- * traits. Crediting the unknowns neutrally means a sparse record simply cannot
- * reach the top -- we do not know enough about it to claim a strong match.
+ * Every trait contributes a similarity in [0,1] times a weight. Traits a species
+ * has no data for are not scored either way; sparse records are kept off the top
+ * by an evidence floor (MIN_EVIDENCE) instead. See NOTES.md, decision 1.
  */
 import type { Ecology, GillAttachment, Hymenium, MushroomParams } from './params';
 import { ATTACHMENTS, DEFAULTS, HYMENIA, SHAPE_AXIS, clamp } from './params';
@@ -28,6 +24,10 @@ export type Species = {
   stipe: string[];
   sporePrint: string[];
   ecology: string | null;
+  /** Keyword-extracted from the habitat/distribution prose; empty = not stated. */
+  season: string[];
+  regions: string[];
+  habitat: string[];
   edibility: string[];
   capCm: [number, number] | null;
   stemCm: [number, number] | null;
@@ -158,7 +158,7 @@ const AUTO_COLOR_WEIGHT = 0.55;
 export type TraitKey =
   | 'hymenium' | 'stipe' | 'capShape' | 'capColor' | 'gillAttachment'
   | 'capDiameter' | 'stemHeight' | 'stemWidth' | 'warts' | 'scales'
-  | 'sporePrint' | 'ecology';
+  | 'sporePrint' | 'ecology' | 'season' | 'region' | 'habitat';
 
 const WEIGHTS = {
   hymenium: 3, // the strongest real identification signal
@@ -175,6 +175,11 @@ const WEIGHTS = {
   // and colour agree: it separates Podaxis (buff) from the black-spored inkcaps
   sporePrint: 2,
   ecology: 1,
+  // Keyword evidence from prose, and an article listing Europe does not rule
+  // out Asia. Low confidence belongs in the weight (NOTES.md, decision 3).
+  season: 0.5,
+  region: 0.5,
+  habitat: 0.5,
 };
 
 /**
@@ -202,6 +207,9 @@ function applicableWeight(params: MushroomParams, skip?: ReadonlySet<TraitKey>):
   if (params.hymenium === 'gills') keys.push('gillAttachment');
   if (params.sporePrint) keys.push('sporePrint');
   if (params.ecology) keys.push('ecology');
+  if (params.season) keys.push('season');
+  if (params.region) keys.push('region');
+  if (params.habitat) keys.push('habitat');
   return keys.filter((k) => !skip?.has(k)).reduce((t, k) => t + WEIGHTS[k], 0);
 }
 
@@ -279,6 +287,14 @@ export function score(params: MushroomParams, sp: Species, skip?: ReadonlySet<Tr
     add('ecology', 'Ecology', WEIGHTS.ecology, params.ecology === sp.ecology ? 1 : 0, sp.ecology);
   }
 
+  const where = (key: 'season' | 'region' | 'habitat', label: string, have: string[]) => {
+    const want = params[key];
+    if (want && have.length) add(key, label, WEIGHTS[key], have.includes(want) ? 1 : 0, have.join(' / '));
+  };
+  where('season', 'Season', sp.season);
+  where('region', 'Region', sp.regions);
+  where('habitat', 'Habitat', sp.habitat);
+
   const applicable = applicableWeight(params, skip);
   // mean over what is actually recorded -- unknowns neither help nor hurt
   const score = total > 0 ? (sum / total) * 100 : 0;
@@ -345,6 +361,9 @@ export function unknownTraits(sp: Species): Set<TraitKey> {
   if (!sp.gillAttachment) out.add('gillAttachment');
   if (!sp.sporePrint.length) out.add('sporePrint');
   if (!sp.ecology) out.add('ecology');
+  if (!sp.season.length) out.add('season');
+  if (!sp.regions.length) out.add('region');
+  if (!sp.habitat.length) out.add('habitat');
   return out;
 }
 
@@ -414,6 +433,9 @@ export function speciesToParams(sp: Species, size: SizeVariant = 'medium'): Mush
     volva: sp.stipe.includes('volva'),
     sporePrint: sp.sporePrint[0] ?? null,
     ecology: (sp.ecology as Ecology | null) ?? null,
+    season: sp.season[0] ?? null,
+    region: sp.regions[0] ?? null,
+    habitat: sp.habitat[0] ?? null,
   };
 }
 
