@@ -148,6 +148,8 @@
 
   aside { overflow-y: auto; border-left: 1px solid var(--line); background: var(--panel); }
   #controls { padding: 14px 16px 24px; }
+  /* the disclosure only exists on mobile; main.ts keeps it open above 760px */
+  #mods > summary { display: none; }
   #controls h3 {
     font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
     color: var(--dim); margin: 18px 0 8px; padding-bottom: 5px;
@@ -319,6 +321,11 @@
       overflow: visible; border-left: none; border-top: 1px solid var(--line);
     }
     #matchpanel > h2 { position: static; }
+    #mods > summary {
+      display: list-item; cursor: pointer; padding: 12px 16px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim);
+    }
+    #mods[open] > summary { border-bottom: 1px solid var(--line); }
     #matches { flex-direction: column; }
     .match { min-width: 0; flex: initial; }
     header { padding: 10px 14px; }
@@ -376,7 +383,12 @@
       </div>
     </section>
 
-    <aside id="controls"></aside>
+    <aside>
+      <details id="mods">
+        <summary>Modifications</summary>
+        <div id="controls"></div>
+      </details>
+    </aside>
 
     <section id="matchpanel">
       <h2>Closest real species</h2>

@@ -390,6 +390,14 @@ setStatus('');
 // ---------------------------------------------------------------- control panel
 
 const controlsEl = document.getElementById('controls')!;
+
+// Mobile: the panel is a collapsed <details>, the handles on the mushroom still
+// work. Desktop: always open (its summary is hidden in CSS).
+const modsEl = document.getElementById('mods') as HTMLDetailsElement;
+const mobileQuery = matchMedia('(max-width: 760px)');
+const syncMods = () => { modsEl.open = !mobileQuery.matches; };
+mobileQuery.addEventListener('change', syncMods);
+syncMods();
 const inputs: { el: HTMLInputElement; key: NumericKey; out: HTMLElement }[] = [];
 const swatchNames: Partial<Record<'capColor' | 'stemColor', HTMLElement>> = {};
 
