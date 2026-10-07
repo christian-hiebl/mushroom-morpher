@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: the job may read the repo and publish Pages, nothing else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once, but let a newer commit finish rather than
+# cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` installs exactly what package-lock.json pins, and refuses to
+      # silently resolve a different version than was tested here.
+      - run: npm ci
+
+      # The data pipeline is NOT run here: it talks to the Wikimedia API and its
+      # output is committed. A deploy must publish the reviewed data, not refetch
+      # whatever Wikipedia says today.
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
