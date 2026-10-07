@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Shape a mushroom in 3D and find the closest real species, from 1,000 species sourced from Wikipedia. Not an identification tool.">
+<meta name="color-scheme" content="dark">
+<title>Mushroom Morpher — shape a mushroom, find its real match</title>
+<style>
+  :root {
+    --bg: #14171a;
+    --panel: #1c2024;
+    --panel2: #23282d;
+    --line: #333a40;
+    --ink: #e8e4db;
+    --dim: #9aa3a8;
+    --accent: #ffd166;
+    --danger: #e5484d;
+    --warn: #e8a33d;
+    --good: #4cc38a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow-x: hidden; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  h1 { font-size: 16px; margin: 0; letter-spacing: .3px; white-space: nowrap; }
+  h1 span { color: var(--accent); }
+  .warning {
+    flex: 1 1 320px; min-width: 260px;
+    font-size: 12.5px; color: #ffd9d9;
+    background: #3a1d1f; border: 1px solid #6b2b2e; border-radius: 6px;
+    padding: 6px 10px;
+  }
+  .warning b { color: #ff9b9b; }
+  #searchwrap { position: relative; flex: 0 1 300px; min-width: 210px; }
+  #search {
+    width: 100%; padding: 7px 11px; font-size: 13px;
+    background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; outline: none;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: #7f8891; }
+  #results {
+    position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0;
+    margin: 0; padding: 4px; list-style: none; max-height: 320px; overflow-y: auto;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 7px;
+    box-shadow: 0 12px 28px #000a;
+  }
+  #results li {
+    padding: 6px 9px; border-radius: 5px; cursor: pointer; font-size: 13px;
+    display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+  }
+  #results li em { font-style: italic; }
+  #results li small { color: var(--dim); font-size: 10.5px; white-space: nowrap; }
+  #results li.sel, #results li:hover { background: #32383e; }
+  #results li.none { color: var(--dim); cursor: default; }
+
+  button#reset {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 7px 14px; cursor: pointer; font-size: 13px;
+  }
+  button#reset:hover { border-color: var(--accent); color: var(--accent); }
+
+  #workbench {
+    border-bottom: 1px solid var(--line); background: #191d21;
+    font-size: 12.5px; flex: 0 0 auto;
+  }
+  #built, #comparebar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 7px 18px;
+  }
+  #comparebar { border-top: 1px dashed var(--line); }
+  .wlabel {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--dim); flex: 0 0 auto;
+  }
+  #builtname { font-style: italic; font-size: 13.5px; }
+  #builtcommon { color: var(--dim); }
+  #builtdims { color: var(--dim); font-size: 11.5px; }
+  .sizes { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .sizes button {
+    background: var(--panel2); color: var(--dim); border: 0; border-right: 1px solid var(--line);
+    padding: 4px 11px; font-size: 11.5px; cursor: pointer;
+  }
+  .sizes button:last-child { border-right: 0; }
+  .sizes button:hover { color: var(--ink); }
+  .sizes button.on { background: var(--accent); color: #1a1a1a; font-weight: 600; }
+  #addcompare, #clearcompare {
+    margin-left: auto; background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 11px;
+    font-size: 11.5px; cursor: pointer;
+  }
+  #addcompare:hover, #clearcompare:hover { border-color: var(--accent); color: var(--accent); }
+  #addcompare:disabled { opacity: .45; cursor: default; border-color: var(--line); color: var(--dim); }
+
+  #comparechips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 auto; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 5px 3px 10px; font-size: 12px; color: var(--ink); cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.on { border-color: var(--accent); background: #3a3426; }
+  .chip .dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid #0008; flex: 0 0 auto; }
+  .chip i { font-style: italic; }
+  .chip .x {
+    border: 0; background: none; color: var(--dim); cursor: pointer;
+    font-size: 14px; line-height: 1; padding: 0 4px;
+  }
+  .chip .x:hover { color: var(--danger); }
+
+  #results li .add {
+    border: 1px solid var(--line); background: var(--panel); color: var(--dim);
+    border-radius: 5px; font-size: 10.5px; padding: 2px 7px; cursor: pointer; flex: 0 0 auto;
+  }
+  #results li .add:hover { border-color: var(--accent); color: var(--accent); }
+  #results li .meta { display: flex; flex-direction: column; min-width: 0; }
+  #results li .meta small { white-space: normal; }
+
+  main {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-columns: minmax(0, 1fr) 340px 320px;
+  }
+
+  #stage { position: relative; min-height: 0; background:
+    radial-gradient(ellipse at 50% 40%, #222a26 0%, #14171a 70%); }
+  #stage canvas {
+    display: block; touch-action: none;
+    width: 100%; height: 100%; max-width: 100%;
+  }
+  /* the 3D column must clip its own contents, never paint under the panels */
+  #stage { overflow: hidden; }
+  #status, #hint {
+    position: absolute; left: 14px; padding: 5px 10px; border-radius: 6px;
+    font-size: 12px; background: #0009; pointer-events: none;
+  }
+  #status { top: 12px; color: var(--accent); min-height: 0; }
+  #hint { bottom: 12px; color: var(--dim); max-width: min(60ch, calc(100% - 28px)); }
+
+  aside { overflow-y: auto; border-left: 1px solid var(--line); background: var(--panel); }
+  #controls { padding: 14px 16px 24px; }
+  #controls h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--dim); margin: 18px 0 8px; padding-bottom: 5px;
+    border-bottom: 1px solid var(--line);
+  }
+  #controls h3:first-child { margin-top: 0; }
+  .row { display: block; margin: 9px 0; }
+  .rowlabel { display: flex; justify-content: space-between; font-size: 13px; }
+  .rowlabel output { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 12px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 3px 0 0; }
+  #controls select {
+    width: 100%; margin-top: 4px; padding: 5px 8px; font-size: 12.5px;
+    background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; outline: none;
+  }
+  #controls select:focus { border-color: var(--accent); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .chips.sub { padding-left: 2px; }
+  .chips.hidden { display: none; }
+  .chips button {
+    background: var(--panel2); color: var(--dim); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 11px; font-size: 12px; cursor: pointer;
+  }
+  .chips button:hover { color: var(--ink); }
+  .chips button.on { background: var(--accent); border-color: var(--accent); color: #1a1a1a; font-weight: 600; }
+  .toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); }
+
+  .swatchlabel {
+    margin: 8px 0 5px; font-size: 12.5px; display: flex; justify-content: space-between;
+  }
+  .swatchlabel span { color: var(--accent); font-size: 11.5px; }
+  .palette {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(22px, 1fr));
+    gap: 4px; margin-bottom: 6px;
+  }
+  .sw {
+    aspect-ratio: 1; border: 1px solid #0006; border-radius: 4px;
+    padding: 0; cursor: pointer; outline: none;
+  }
+  .sw:hover { transform: scale(1.18); border-color: var(--ink); }
+  .sw.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+  .sw:focus-visible { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
+
+  #matchpanel { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; }
+  #matchpanel > h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim);
+    margin: 0; padding: 16px 16px 8px; position: sticky; top: 0; background: var(--panel);
+  }
+  #matches { padding: 0 14px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+  .match {
+    background: var(--panel2); border: 1px solid var(--line);
+    border-left: 3px solid var(--line); border-radius: 8px; overflow: hidden;
+  }
+  .match.danger { border-left-color: var(--danger); }
+  .match.warn { border-left-color: var(--warn); }
+  .match.good { border-left-color: var(--good); }
+  .match img { width: 100%; height: 118px; object-fit: cover; display: block; background: #111; }
+  /* species whose article carries no lead photo */
+  .match img.noimg {
+    height: 46px;
+    background: repeating-linear-gradient(45deg, #23282d, #23282d 7px, #1e2226 7px, #1e2226 14px);
+  }
+  .mbody { padding: 9px 11px 11px; }
+  .mhead { display: flex; justify-content: space-between; align-items: baseline; }
+  .rank { font-size: 11px; color: var(--dim); }
+  .cover { font-size: 10px; color: var(--dim); margin-left: auto; margin-right: 7px; cursor: help; }
+  .pct { font-size: 17px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .match h4 { margin: 1px 0 6px; font-size: 14px; font-style: italic; }
+  .match h4 a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--dim); }
+  .match h4 a:hover { color: var(--accent); }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    font-size: 10.5px; padding: 1.5px 7px; border-radius: 999px;
+    border: 1px solid currentColor; text-transform: lowercase;
+  }
+  .badge.danger { color: var(--danger); }
+  .badge.warn { color: var(--warn); }
+  .badge.good { color: var(--good); }
+  .badge.muted { color: var(--dim); }
+
+  .traits { list-style: none; margin: 9px 0 0; padding: 0; font-size: 11.5px; }
+  .traits li {
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 2.5px 0; border-bottom: 1px solid #ffffff0a;
+  }
+  .traits .tval { color: var(--dim); text-align: right; }
+  .traits li.hit span:first-child { color: var(--good); }
+  .traits li.near span:first-child { color: var(--warn); }
+  .traits li.miss span:first-child { color: #7d7570; }
+  .credit { font-size: 10px; color: #6f7678; margin: 8px 0 0; }
+  .credit a, #lb-credit a { color: #8a9298; text-decoration: underline; }
+  .credit a:hover, #lb-credit a:hover { color: var(--accent); }
+
+  /* Two columns: the match panel drops to a full-width strip under the stage. */
+  /* photo slideshow */
+  #lightbox {
+    position: fixed; inset: 0; z-index: 100; background: #000d;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    backdrop-filter: blur(3px);
+  }
+  #lightbox[hidden] { display: none; }
+  /*
+   * Fixed width, not image-driven. Sizing the figure to each photo's aspect
+   * ratio moved the arrows between a portrait and a landscape shot, so stepping
+   * through a slideshow meant chasing the button with the mouse. The frame is
+   * constant and the photo is letterboxed inside it.
+   */
+  .lb-inner {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    width: min(68vw, 1250px); max-height: 100%;
+  }
+  .lb-inner figure {
+    margin: 0; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px #000b;
+    flex: 1 1 auto; min-width: 0; /* fills the row; arrows keep their place */
+  }
+  #lb-img {
+    display: block; width: 100%; height: min(70vh, 780px);
+    object-fit: contain; background: #0c0e10;
+  }
+  .lb-inner figcaption { padding: 9px 14px; display: grid; gap: 2px; }
+  #lb-title { font-style: italic; font-size: 14px; }
+  #lb-count { font-size: 11px; color: var(--dim); }
+  #lb-credit { font-size: 10px; color: #6f7678; }
+  #lb-prev, #lb-next, #lb-close {
+    background: #1e2226cc; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 50%; width: 42px; height: 42px; font-size: 22px; line-height: 1;
+    cursor: pointer; flex: 0 0 auto;
+  }
+  #lb-prev:hover, #lb-next:hover, #lb-close:hover { border-color: var(--accent); color: var(--accent); }
+  #lb-close {
+    position: absolute; top: -6px; right: -6px; width: 32px; height: 32px;
+    font-size: 17px; z-index: 2;
+  }
+  #lb-prev[disabled], #lb-next[disabled] { opacity: .25; cursor: default; }
+  .match img { cursor: zoom-in; }
+  .match img.noimg { cursor: default; }
+
+  @media (max-width: 1100px) {
+    .lb-inner { width: min(88vw, 1000px); }
+  }
+  @media (max-width: 760px) {
+    #lightbox { padding: 12px; }
+    .lb-inner { width: 100%; gap: 5px; }
+    #lb-prev, #lb-next { width: 34px; height: 34px; font-size: 18px; }
+    #lb-img { height: min(58vh, 460px); }
+  }
+
+  @media (max-width: 1100px) {
+    main { grid-template-columns: minmax(0, 1fr) 320px; }
+    #matchpanel {
+      grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--line);
+      overflow-x: auto;
+    }
+    #matches { flex-direction: row; }
+    .match { min-width: 260px; flex: 0 0 260px; }
+  }
+
+  /* Single column: the whole page scrolls, so nothing scrolls inside itself. */
+  @media (max-width: 760px) {
+    body { height: auto; min-height: 100%; }
+    main { grid-template-columns: 1fr; flex: none; min-height: 0; }
+    #stage { height: 60vh; min-height: 320px; }
+    aside, #matchpanel {
+      overflow: visible; border-left: none; border-top: 1px solid var(--line);
+    }
+    #matchpanel > h2 { position: static; }
+    #matches { flex-direction: column; }
+    .match { min-width: 0; flex: initial; }
+    header { padding: 10px 14px; }
+    h1 { flex: 1 1 auto; }
+    .warning { order: 3; flex-basis: 100%; }
+  }
+
+</style>
+</head>
+<body>
+  <header>
+    <h1>Mushroom <span>Morpher</span></h1>
+    <p class="warning">
+      <b>Not an identification tool.</b> This is a toy for exploring mushroom shape.
+      A high match percentage means nothing about what is safe.
+      <b>Never eat a wild mushroom based on this.</b>
+    </p>
+    <div id="searchwrap">
+      <input id="search" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Build a real species — try Boletus edulis…"
+             aria-label="Search for a mushroom species to build"
+             role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+      <ul id="results" role="listbox" hidden></ul>
+    </div>
+    <button id="reset" type="button">Reset shape</button>
+  </header>
+
+  <div id="workbench" hidden>
+    <div id="built">
+      <span class="wlabel">Built</span>
+      <strong id="builtname"></strong>
+      <span id="builtcommon"></span>
+      <span class="sizes" role="group" aria-label="Specimen size">
+        <button type="button" data-size="small">Small</button>
+        <button type="button" data-size="medium">Medium</button>
+        <button type="button" data-size="large">Large</button>
+      </span>
+      <span id="builtdims"></span>
+      <button type="button" id="addcompare">+ Add to comparison</button>
+    </div>
+    <div id="comparebar" hidden>
+      <span class="wlabel">Comparing</span>
+      <div id="comparechips"></div>
+      <button type="button" id="clearcompare">Clear</button>
+    </div>
+  </div>
+
+  <main>
+    <section id="stage">
+      <div id="status"></div>
+      <div id="hint">
+        Drag the <strong>yellow dots</strong> — or the <strong>cap and stem themselves</strong> — to
+        reshape it: sideways changes width, up and down changes height. Drag the background to
+        orbit (look underneath to see the gills), scroll to zoom. Grid squares are 1&nbsp;cm.
+      </div>
+    </section>
+
+    <aside id="controls"></aside>
+
+    <section id="matchpanel">
+      <h2>Closest real species</h2>
+      <div id="matches"></div>
+    </section>
+  </main>
+
+  <div id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Species photos">
+    <div class="lb-inner">
+      <button id="lb-close" type="button" aria-label="Close">&times;</button>
+      <button id="lb-prev" type="button" aria-label="Previous photo">&#8249;</button>
+      <figure>
+        <img id="lb-img" alt="">
+        <figcaption>
+          <span id="lb-title"></span>
+          <span id="lb-count"></span>
+          <small id="lb-credit"></small>
+        </figcaption>
+      </figure>
+      <button id="lb-next" type="button" aria-label="Next photo">&#8250;</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
