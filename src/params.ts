@@ -29,6 +29,10 @@ export type MushroomParams = {
    */
   sporePrint: string | null;
   ecology: Ecology | null;
+  /** Where and when it was found. Also null = "I don't know" and not scored. */
+  season: string | null;
+  region: string | null;
+  habitat: string | null;
 };
 
 /** A generic brown convex gilled mushroom -- the "base mushroom" you start from. */
@@ -48,6 +52,9 @@ export const DEFAULTS: MushroomParams = {
   volva: false,
   sporePrint: null,
   ecology: null,
+  season: null,
+  region: null,
+  habitat: null,
 };
 
 /**
@@ -80,6 +87,18 @@ export const HYMENIA: { value: Hymenium; label: string; hint: string }[] = [
 ];
 
 export const ATTACHMENTS: GillAttachment[] = ['free', 'adnexed', 'adnate', 'sinuate', 'decurrent'];
+
+/**
+ * Season, region and habitat vocabularies. scripts/habitat.ts extracts exactly
+ * these values from article prose, so the two can never drift apart.
+ */
+export const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
+export const REGIONS = [
+  'Europe', 'North America', 'South America', 'Asia', 'Africa', 'Australasia',
+] as const;
+export const HABITATS = [
+  'conifers', 'broadleaf trees', 'grassland', 'dead wood', 'dung', 'burnt ground',
+] as const;
 
 /** The Mycomorphbox spore-print vocabulary, ordered light to dark. */
 export const SPORE_PRINTS = [

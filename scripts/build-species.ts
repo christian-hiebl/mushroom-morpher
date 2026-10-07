@@ -7,6 +7,7 @@
  */
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { extractColor } from './colors';
+import { extractHabitat } from './habitat';
 
 const UA = 'mushroom-morpher/0.1 (educational project; https://github.com/local)';
 const API = 'https://en.wikipedia.org/w/api.php';
@@ -696,6 +697,7 @@ async function main() {
         ecology: multi(box, 'ecologicalType'),
         edibility: multi(box, 'howEdible'),
       },
+      where: extractHabitat(desc),
       capCm: dims.capCm,
       stemCm: dims.stemCm,
       stemWidthCm: dims.stemWidthCm,
@@ -790,9 +792,13 @@ async function main() {
         capColorName: curated ? c.capColorName ?? null : r.autoCapColor?.name ?? null,
         stemColor,
         colorMethod,
+        season: r.where.season,
+        regions: r.where.regions,
+        habitat: r.where.habitat,
         hasWarts: Boolean(r.wartsSentence),
         hasScales: Boolean(r.scalesSentence),
-        image: r.image ? { ...r.image, artist: cleanArtist(r.image.artist) } : null,
+        // the API appends ?utm_... tracking parameters; they are ~80 KB of nothing
+        image: r.image ? { ...r.image, url: r.image.url.split('?')[0], artist: cleanArtist(r.image.artist) } : null,
       };
     });
     writeFileSync('src/data/species.json', JSON.stringify(runtime));
@@ -822,7 +828,7 @@ async function main() {
           .toLowerCase();
         if (seen.has(key)) continue; // the lead photo is usually in the list too
         seen.add(key);
-        shots.push(g);
+        shots.push({ ...g, url: g.url.split('?')[0] });
         if (shots.length === 5) break;
       }
       if (shots.length) gallery[r.sciName] = shots;

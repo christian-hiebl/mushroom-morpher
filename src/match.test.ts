@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import {
   rank, score, search, speciesToParams, unknownTraits, colorSim, rangeSim, type Species,
 } from './match';
-import { DEFAULTS, type MushroomParams } from './params';
+import { DEFAULTS, HABITATS, REGIONS, SEASONS, type MushroomParams } from './params';
+import { extractHabitat } from '../scripts/habitat';
 
 const all: Species[] = JSON.parse(readFileSync('src/data/species.json', 'utf8'));
 const p = (over: Partial<MushroomParams>): MushroomParams => ({ ...DEFAULTS, ...over });
@@ -227,6 +228,29 @@ console.log('match.test.ts: all assertions passed');
       assert.ok(ATTACH.has(s.gillAttachment), `bad attachment ${JSON.stringify(s.gillAttachment)} on ${s.name}`);
     }
   }
+}
+
+// --- season / region / habitat: fixed vocabulary, and the extractor's known traps ---
+{
+  for (const s of all) {
+    for (const v of s.season) assert.ok((SEASONS as readonly string[]).includes(v), `bad season ${v} on ${s.name}`);
+    for (const v of s.regions) assert.ok((REGIONS as readonly string[]).includes(v), `bad region ${v} on ${s.name}`);
+    for (const v of s.habitat) assert.ok((HABITATS as readonly string[]).includes(v), `bad habitat ${v} on ${s.name}`);
+  }
+  const x = (t: string) => extractHabitat(t);
+  assert.deepEqual(x('It fruits from spring to autumn under beech in Europe.'),
+    { season: ['spring', 'summer', 'autumn'], regions: ['Europe'], habitat: ['broadleaf trees'] });
+  // each of these was a real false positive on the first pass
+  assert.deepEqual(x('Fruit bodies may spring up in groups.').season, []);
+  assert.deepEqual(x('It is recorded from South Australia to New South Wales.').regions, ['Australasia']);
+  assert.deepEqual(x('It has a chestnut-brown cap.').habitat, []);
+  assert.deepEqual(x('Related species are found in South America.').regions, []);
+  assert.deepEqual(x('It has been recorded on ten host genera worldwide.').regions, []);
+  assert.deepEqual(x('It is absent from Africa.').regions, []);
+  assert.deepEqual(x('The species is found in Eurasia.').regions, ['Europe', 'Asia']);
+  // only the lead and the habitat sections are read
+  assert.deepEqual(x('A mushroom.\n\n\nSimilar species\nX grows in Japan.\n\n\nHabitat\nOn dung in Kenya.'),
+    { season: [], regions: ['Africa'], habitat: ['dung'] });
 }
 
 // --- every recorded size must be representable by the sliders ---

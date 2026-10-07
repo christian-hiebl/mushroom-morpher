@@ -29,11 +29,16 @@ const CSP = [
 const securityHeaders = (): Plugin => ({
   name: 'csp-meta',
   apply: 'build',
-  transformIndexHtml(html) {
+  transformIndexHtml(html, ctx) {
+    // The species data is a dynamic import, which the browser would only
+    // discover after running the main bundle. Preload it so both download
+    // in parallel.
+    const data = Object.keys(ctx.bundle ?? {}).find((f) => /species-.*\.js$/.test(f));
     return html.replace(
       '<meta name="referrer" content="no-referrer">',
       `<meta http-equiv="Content-Security-Policy" content="${CSP}">\n` +
-      '<meta name="referrer" content="no-referrer">',
+      '<meta name="referrer" content="no-referrer">' +
+      (data ? `\n<link rel="modulepreload" crossorigin href="./${data}">` : ''),
     );
   },
 });
@@ -47,8 +52,8 @@ export default defineConfig({
   base: './',
   plugins: [securityHeaders()],
   build: {
-    // species.json is ~870 KB of data; the size warning is expected
-    chunkSizeWarningLimit: 1600,
+    // species.json is its own ~900 KB chunk; the size warning is expected
+    chunkSizeWarningLimit: 1000,
     target: 'es2022',
   },
 });

@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { Species } from './match';
+import { wikiThumb } from './photo';
 
 const species: Species[] = JSON.parse(readFileSync('src/data/species.json', 'utf8'));
 const gallery: Record<string, { url: string; artist: string; license: string; page: string }[]> =
@@ -26,6 +27,24 @@ function checkUrl(url: string, where: string) {
   }
   assert.equal(parsed.protocol, 'https:', `non-https URL at ${where}: ${url.slice(0, 80)}`);
   assert.ok(ALLOWED_HOSTS.has(parsed.host), `unexpected host at ${where}: ${parsed.host}`);
+}
+
+// --- every photo is requested as a thumbnail, never as a hotlinked original ---
+{
+  const all = [
+    ...species.flatMap((s) => (s.image ? [s.image.url] : [])),
+    ...Object.values(gallery).flat().map((g) => g.url),
+  ];
+  for (const url of all) {
+    const t = wikiThumb(url, 500);
+    checkUrl(t, 'thumbnail');
+    assert.match(new URL(t).pathname, /\/thumb\/.+\/\d+px-[^/]+$/, `not a thumbnail: ${t.slice(0, 120)}`);
+  }
+  assert.equal(
+    wikiThumb('https://upload.wikimedia.org/wikipedia/commons/0/04/China_Guangdong.svg?x=1', 500),
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/China_Guangdong.svg/500px-China_Guangdong.svg.png',
+  );
+  console.log(`  ${all.length} photos: all resolve to thumbnails`);
 }
 
 // --- every URL in the shipped data is https and points at Wikimedia ---

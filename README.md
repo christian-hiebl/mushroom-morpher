@@ -37,7 +37,7 @@ Run it with `npm run build:data`. Pageviews and extracts are cached under
 
 Because auto colours are measurably less reliable, the matcher shrinks their
 similarity toward the neutral prior, so a wrong one costs roughly half what a wrong
-curated colour would. Current split: 84 hand-derived, ~341 auto, ~575 with no colour.
+curated colour would. Current split: 191 hand-derived, 278 auto, 531 with no colour.
 
 **The colour picker** offers a fixed palette built from the colours real species
 actually have, rather than a free colour wheel — no mushroom is hot pink or cyan, so
@@ -48,6 +48,11 @@ reachable from the palette.
 
 `species.raw.json` keeps the full descriptions and is the audit trail — the app only
 loads the merged `species.json`.
+
+**Season, region and habitat** are also prose-only. `scripts/habitat.ts` reads them
+by keyword from the lead paragraph and the habitat / distribution sections, into fixed
+vocabularies (four seasons, six continents, six habitats). They are optional in the
+panel and count for half as much as a measured trait.
 
 ## Building a species from its name
 
