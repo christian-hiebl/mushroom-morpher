@@ -21,6 +21,34 @@ import {
   type Ecology, type GillAttachment, type Hymenium, type MushroomParams, type NumericKey,
 } from './params';
 
+// ------------------------------------------------------- first-visit consent
+
+/**
+ * A first-time visitor must tick the acknowledgement before using the page.
+ * showModal() makes everything behind the dialog inert, so there is no way to
+ * reach the app around it.
+ */
+{
+  const KEY = 'mushroom-morpher:consent';
+  // storage can throw (private mode, blocked site data); then ask every visit
+  let accepted = false;
+  try { accepted = localStorage.getItem(KEY) === '1'; } catch { /* ask */ }
+  if (!accepted) {
+    const dialog = document.getElementById('consent') as HTMLDialogElement;
+    const check = document.getElementById('consent-check') as HTMLInputElement;
+    const ok = document.getElementById('consent-ok') as HTMLButtonElement;
+    check.addEventListener('change', () => { ok.disabled = !check.checked; });
+    dialog.addEventListener('cancel', (e) => e.preventDefault()); // Escape
+    dialog.addEventListener('close', () => {
+      // Chrome closes a dialog on a second Escape even when cancel is
+      // prevented, so a close without the tick reopens it.
+      if (!check.checked) { dialog.showModal(); return; }
+      try { localStorage.setItem(KEY, '1'); } catch { /* asked again next visit */ }
+    });
+    dialog.showModal();
+  }
+}
+
 /**
  * Empty until the data chunk arrives. It is imported dynamically (see the end
  * of this file) so the scene paints without waiting on ~900 KB of species data.
@@ -679,7 +707,7 @@ const worstClass = (edibility: string[]) =>
  * during a drag; mutating only what changed keeps it still.
  */
 type Card = {
-  root: HTMLElement; img: HTMLImageElement; pct: HTMLElement; cover: HTMLElement;
+  root: HTMLElement; img: HTMLImageElement;
   name: HTMLAnchorElement; buildBtn: HTMLButtonElement;
   badges: HTMLElement; traits: HTMLElement; credit: HTMLElement; key: string;
   /** Which species this card currently shows, for opening its slideshow. */
@@ -701,8 +729,7 @@ for (let i = 0; i < MATCH_COUNT; i++) {
   root.innerHTML = `
     <img alt="" loading="${i === 0 ? 'eager' : 'lazy'}">
     <div class="mbody">
-      <div class="mhead"><span class="rank">#${i + 1}</span>
-        <span class="cover"></span><span class="pct"></span></div>
+      <div class="mhead"><span class="rank">#${i + 1}</span></div>
       <h4><a target="_blank" rel="noopener noreferrer"></a></h4>
       <div class="badges"></div>
       <p class="nosafe">Not for identification. No warning here does not mean safe to eat.</p>
@@ -714,8 +741,6 @@ for (let i = 0; i < MATCH_COUNT; i++) {
   const card: Card = {
     root,
     img: root.querySelector('img')!,
-    pct: root.querySelector<HTMLElement>('.pct')!,
-    cover: root.querySelector<HTMLElement>('.cover')!,
     name: root.querySelector<HTMLAnchorElement>('h4 a')!,
     buildBtn: root.querySelector<HTMLButtonElement>('.buildme')!,
     badges: root.querySelector<HTMLElement>('.badges')!,
@@ -741,15 +766,8 @@ function renderMatches(top: Match[]) {
   top.forEach((m, i) => {
     const c = cards[i];
     const s = m.species;
-    c.pct.textContent = `${m.score.toFixed(0)}%`;
-    // how much is actually known about this species, so a 100% from three
-    // traits is never mistaken for a 100% from nine
-    const scored = m.traits.length;
-    c.cover.textContent = `on ${scored} trait${scored === 1 ? '' : 's'}`;
-    c.cover.title =
-      `Matched on ${scored} of the traits this species records. ` +
-      `Traits its article never states are not scored either way.`;
-
+    // The score only orders the cards. It is never shown: a percentage beside
+    // a species reads as a confidence in an identification.
     c.root.hidden = false;
     c.buildBtn.disabled = built === s;
     c.buildBtn.textContent = built === s ? 'Built' : 'Build me';
@@ -1060,7 +1078,24 @@ function showShot(i: number) {
   shotIndex = (i + shots.length) % shots.length;
   const shot = shots[shotIndex];
   const url = safeUrl(shot.url);
-  if (url) setPhoto(lbImg, url, 1280); else lbImg.removeAttribute('src');
+  if (url) {
+    // Wikimedia rate-limits with 429s, and a large size is the likeliest to be
+    // refused. Show the card-size photo first (already in the browser cache for
+    // the lead photo) and swap the large one in only once it has really loaded.
+    setPhoto(lbImg, url, 500);
+    const big = new Image();
+    big.onload = () => {
+      if (shots[shotIndex] !== shot) return; // moved on while it was loading
+      lbImg.src = big.src;
+      // preload the neighbour so stepping through feels instant; only now, so
+      // two large requests never compete for the rate limit
+      const next = shots.length > 1 && safeUrl(shots[(shotIndex + 1) % shots.length].url);
+      if (next) new Image().src = wikiThumb(next, 1280);
+    };
+    big.src = wikiThumb(url, 1280);
+  } else {
+    lbImg.removeAttribute('src');
+  }
   lbCount.textContent = `photo ${shotIndex + 1} of ${shots.length}`;
   // full attribution: author, licence, and a link to the source file page
   const source = safeUrl(shot.page);
@@ -1077,11 +1112,6 @@ function showShot(i: number) {
   const only = shots.length < 2;
   lbPrev.disabled = only;
   lbNext.disabled = only;
-  // preload the neighbour so stepping through feels instant
-  if (!only) {
-    const next = safeUrl(shots[(shotIndex + 1) % shots.length].url);
-    if (next) new Image().src = wikiThumb(next, 1280);
-  }
 }
 
 async function openGallery(sp: Species, trigger: HTMLElement) {

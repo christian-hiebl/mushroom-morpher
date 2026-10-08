@@ -1,0 +1,23 @@
+/* Shared by the static text pages (safety/, terms/). Colours mirror index.html. */
+:root {
+  --bg: #14171a; --panel: #1c2024; --line: #333a40; --ink: #e8e4db;
+  --dim: #9aa3a8; --accent: #ffd166;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 72ch; margin: 0 auto; padding: 24px 18px 64px; }
+a { color: var(--accent); }
+h1 { font-size: 26px; line-height: 1.25; margin: 18px 0 6px; }
+h2 { font-size: 18px; margin: 34px 0 6px; color: var(--accent); }
+p, ul { margin: 10px 0; }
+li { margin: 5px 0; }
+.lede { color: var(--dim); }
+.box {
+  background: #3a1d1f; border: 1px solid #6b2b2e; border-radius: 8px;
+  padding: 12px 16px; color: #ffd9d9; margin: 20px 0;
+}
+.box b { color: #ff9b9b; }
+footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; }

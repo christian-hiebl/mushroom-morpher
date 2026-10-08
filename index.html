@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta name="description" content="Shape a mushroom in 3D and find the closest real species, from 1,000 species sourced from Wikipedia. Not an identification tool.">
+<meta name="description" content="Shape a mushroom in 3D and see similar-looking reference species, from 1,000 species sourced from Wikipedia. An educational toy, not an identification tool.">
 <meta name="color-scheme" content="dark">
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <title>Mushroom Morpher — shape a mushroom, find its real match</title>
@@ -43,6 +43,8 @@
     padding: 6px 10px;
   }
   .warning b { color: #ff9b9b; }
+  .warning p { margin: 3px 0 0; }
+  .warning a { color: inherit; }
   #searchwrap { position: relative; flex: 0 1 300px; min-width: 210px; }
   #search {
     width: 100%; padding: 7px 11px; font-size: 13px;
@@ -230,8 +232,6 @@
   .mbody { padding: 9px 11px 11px; }
   .mhead { display: flex; justify-content: space-between; align-items: baseline; }
   .rank { font-size: 11px; color: var(--dim); }
-  .cover { font-size: 10px; color: var(--dim); margin-left: auto; margin-right: 7px; cursor: help; }
-  .pct { font-size: 17px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .match h4 { margin: 1px 0 6px; font-size: 14px; font-style: italic; }
   .match h4 a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--dim); }
   .match h4 a:hover { color: var(--accent); }
@@ -266,6 +266,25 @@
   .credit a:hover, #lb-credit a:hover { color: var(--accent); }
 
   /* Two columns: the match panel drops to a full-width strip under the stage. */
+  /* first-visit acknowledgement */
+  #consent {
+    width: min(92vw, 460px); padding: 22px; border: 1px solid var(--line);
+    border-radius: 10px; background: var(--panel); color: var(--ink);
+    box-shadow: 0 20px 60px #000b;
+  }
+  #consent::backdrop { background: #000d; backdrop-filter: blur(3px); }
+  #consent h2 { margin: 0 0 12px; font-size: 16px; color: var(--accent); }
+  #consent label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+  #consent input { margin-top: 4px; flex: none; }
+  #consent p { margin: 12px 0 0; font-size: 12.5px; color: var(--dim); }
+  #consent a { color: var(--accent); }
+  #consent button {
+    margin-top: 16px; width: 100%; background: var(--accent); color: #1a1a1a;
+    border: 0; border-radius: 6px; padding: 8px 11px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+  #consent button:disabled { background: var(--line); color: var(--dim); cursor: default; }
+
   /* photo slideshow */
   #lightbox {
     position: fixed; inset: 0; z-index: 100; background: #000d;
@@ -358,11 +377,17 @@
   <header>
     <h1>Mushroom <span>Morpher</span>
       <small>Shape your own, then meet its real-life clone.</small></h1>
-    <p class="warning">
-      <b>Not an identification tool.</b> This is a toy for exploring mushroom shape.
-      A high match percentage means nothing about what is safe.
-      <b>Never eat a wild mushroom based on this.</b>
-    </p>
+    <div class="warning" role="note">
+      <b>⚠️ NOT A MUSHROOM IDENTIFICATION TOOL</b>
+      <p>Mushroom Morpher is an educational shape-exploration toy. Its results are not
+        identification, species determination, toxicity assessment, or edibility advice.</p>
+      <p>Never use this website to decide whether a mushroom is safe to eat. Never consume
+        a wild mushroom based on information from this website.</p>
+      <p>Mushroom identification requires examination by a qualified expert using
+        characteristics that cannot be reliably determined by this tool.
+        <a href="./safety/">Safety and limitations</a> &middot;
+        <a href="./terms/">Terms of Use</a></p>
+    </div>
     <div id="searchwrap">
       <input id="search" type="search" disabled autocomplete="off" spellcheck="false"
              placeholder="Build a real species — try Boletus edulis…"
@@ -412,7 +437,7 @@
     </aside>
 
     <section id="matchpanel">
-      <h2>Closest real species</h2>
+      <h2>Similar-looking reference species</h2>
       <div id="matches"></div>
     </section>
   </main>
@@ -432,6 +457,20 @@
       <button id="lb-next" type="button" aria-label="Next photo">&#8250;</button>
     </div>
   </div>
+
+  <dialog id="consent" aria-labelledby="consent-title">
+    <form method="dialog">
+      <h2 id="consent-title">Before you start</h2>
+      <label>
+        <input id="consent-check" type="checkbox" required>
+        <span>I understand this tool is strictly an interactive graphic visualization
+          and must NEVER be used for foraging or edible identification.</span>
+      </label>
+      <p>By continuing you agree to the <a href="./terms/">Terms of Use</a>. See also
+        <a href="./safety/">Safety and limitations</a>.</p>
+      <button id="consent-ok" disabled>Continue</button>
+    </form>
+  </dialog>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

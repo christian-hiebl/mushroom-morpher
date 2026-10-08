@@ -1,6 +1,6 @@
 # Mushroom Morpher
 
-Shape a mushroom in 3D and watch the closest real species update as you drag.
+Shape a mushroom in 3D and watch the similar-looking reference species update as you drag.
 Or search for a species by name and have its 3D model built from its recorded traits.
 
 ## Where the species come from
@@ -95,8 +95,8 @@ Two safeguards stop that from being exploited:
 - A species must reach a minimum weight of scorable traits to be ranked at all.
   *Claviceps purpurea* records nothing but a stem character, and without this floor
   it scored ~100% off a single lucky trait. 6 of 1,000 species are excluded.
-- Each match reports **how many traits it was scored on**, so a 100% from three
-  traits is never mistaken for a 100% from nine.
+- The score itself is **never displayed**. It only orders the cards; a percentage
+  beside a species would read as confidence in an identification.
 
 An earlier version instead credited unknown traits at a neutral prior. That had a
 fatal flaw: a species could not match its own model. *Podaxis pistillaris* records
@@ -140,7 +140,7 @@ become real choices again.
 - `hasWarts` comes from keyword presence in the description, so a `false` is weak
   evidence of absence; mismatches are softened rather than scored zero.
 - Many species legitimately tie at 100%: with only a handful of traits recorded,
-  the data genuinely cannot separate them. The trait count on each card shows this.
+  the data genuinely cannot separate them.
 - `pores` and `smooth` look nearly identical until you orbit below the cap.
 - 293 species have no English name in their article's opening sentence, so they are
   findable only by their scientific name.
@@ -148,6 +148,14 @@ become real choices again.
 
 ## Not an identification tool
 
-This is a toy for exploring morphology. A high match percentage says nothing about
-what is safe to eat, and several deadly species are in the dataset. Never eat a wild
-mushroom based on this.
+This is an educational toy for exploring morphology. Its results are not
+identification, species determination, toxicity assessment, or edibility advice. A
+species appearing as similar-looking says nothing about what is safe to eat, and
+several deadly species are in the dataset. Never eat a wild mushroom based on this.
+
+The app is built to avoid reading as advice:
+
+- First-time visitors must tick an acknowledgement before the page can be used.
+- Wikipedia's `edible` and `choice` values are dropped at build time and never
+  shipped; only warnings (deadly, poisonous, ...) are shown. A card with no
+  warning is not a statement that the species is safe.
