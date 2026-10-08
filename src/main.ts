@@ -667,10 +667,9 @@ const EDIBILITY_CLASS: Record<string, string> = {
   deadly: 'danger', poisonous: 'danger', allergenic: 'warn', caution: 'warn',
   psychoactive: 'warn', 'not recommended': 'warn', inedible: 'muted',
   unpalatable: 'muted', 'too hard to eat': 'muted', unknown: 'muted',
-  edible: 'good', choice: 'good',
 };
 /** Most severe edibility wins the card's accent colour. */
-const SEVERITY = ['danger', 'warn', 'good', 'muted'];
+const SEVERITY = ['danger', 'warn', 'muted'];
 const worstClass = (edibility: string[]) =>
   SEVERITY.find((c) => edibility.some((e) => EDIBILITY_CLASS[e] === c)) ?? 'muted';
 
@@ -706,6 +705,7 @@ for (let i = 0; i < MATCH_COUNT; i++) {
         <span class="cover"></span><span class="pct"></span></div>
       <h4><a target="_blank" rel="noopener noreferrer"></a></h4>
       <div class="badges"></div>
+      <p class="nosafe">Not for identification. No warning here does not mean safe to eat.</p>
       <button type="button" class="buildme">Build me</button>
       <ul class="traits"></ul>
       <p class="credit"></p>
