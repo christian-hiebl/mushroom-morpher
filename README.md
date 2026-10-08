@@ -1,5 +1,7 @@
 # Mushroom Morpher
 
+**Shape custom 3D fungi — an interactive design sandbox.**
+
 Shape a mushroom in 3D and watch the similar-looking reference species update as you drag.
 Or search for a species by name and have its 3D model built from its recorded traits.
 
