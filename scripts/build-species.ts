@@ -784,7 +784,9 @@ async function main() {
         stipe: stipeSet(r.box.stipe),
         sporePrint: r.box.sporePrint,
         ecology: r.box.ecology[0] ?? null,
-        edibility: r.box.edibility,
+        // "edible" and "choice" stay in species.raw.json only: beside a match
+        // percentage they read as advice to eat it, so the app never ships them.
+        edibility: r.box.edibility.filter((e) => e !== 'edible' && e !== 'choice'),
         capCm: r.capCm,
         stemCm: r.stemCm,
         stemWidthCm: r.stemWidthCm,

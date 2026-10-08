@@ -106,4 +106,9 @@ function checkUrl(url: string, where: string) {
   }
 }
 
+// Positive edibility must never ship: next to a match % it reads as advice.
+for (const s of species) {
+  assert.ok(!s.edibility.some((e) => e === 'edible' || e === 'choice'), `${s.name} ships positive edibility`);
+}
+
 console.log('security.test.ts: all assertions passed');
