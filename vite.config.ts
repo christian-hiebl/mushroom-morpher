@@ -33,7 +33,9 @@ const securityHeaders = (): Plugin => ({
     // The species data is a dynamic import, which the browser would only
     // discover after running the main bundle. Preload it so both download
     // in parallel.
-    const data = Object.keys(ctx.bundle ?? {}).find((f) => /species-.*\.js$/.test(f));
+    // Only the app page: the text pages are static and load no script.
+    const data = ctx.path === '/index.html'
+      && Object.keys(ctx.bundle ?? {}).find((f) => /species-.*\.js$/.test(f));
     return html.replace(
       '<meta name="referrer" content="no-referrer">',
       `<meta http-equiv="Content-Security-Policy" content="${CSP}">\n` +
@@ -55,5 +57,7 @@ export default defineConfig({
     // species.json is its own ~900 KB chunk; the size warning is expected
     chunkSizeWarningLimit: 1000,
     target: 'es2022',
+    // the static text pages are inputs so they get the same CSP meta tag as the app
+    rollupOptions: { input: ['index.html', 'safety/index.html', 'terms/index.html'] },
   },
 });
